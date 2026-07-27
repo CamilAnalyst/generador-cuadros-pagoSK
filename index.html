@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Generador de Cuadros de Pago</title>
+<style>
+:root{--navy:#17365d;--blue:#4472c4;--light:#f4f7fb;--yellow:#fff2cc;--green:#e2f0d9;--red:#b91c1c;--ink:#1f2937}
+*{box-sizing:border-box}body{margin:0;background:var(--light);font-family:Segoe UI,Arial,sans-serif;color:var(--ink)}
+header{background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;padding:28px 18px}header div,main{max-width:1180px;margin:auto}h1{margin:0 0 6px;font-size:clamp(24px,4vw,38px)}header p{margin:0;opacity:.9}
+main{padding:22px 14px 45px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.card{background:#fff;border-radius:14px;padding:18px;box-shadow:0 5px 18px #17365d14}.card h2{font-size:16px;color:var(--navy);margin:0 0 14px;border-bottom:2px solid #dbe7f5;padding-bottom:8px}
+label{display:block;font-size:13px;font-weight:600;margin:11px 0 5px}input,select{width:100%;border:1px solid #b9c5d3;border-radius:8px;padding:10px;font-size:15px;background:var(--yellow)}input:focus,select:focus{outline:3px solid #4472c433;border-color:var(--blue)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}.kpi{background:#fff;border-left:5px solid var(--blue);padding:14px;border-radius:10px;box-shadow:0 4px 12px #17365d12}.kpi small{display:block;color:#64748b}.kpi strong{display:block;font-size:19px;margin-top:5px;color:var(--navy)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin:15px 0}.btn{border:0;border-radius:9px;padding:11px 16px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff}.btn.alt{background:#fff;color:var(--navy);border:1px solid #9fb1c5}.status{padding:9px 11px;border-radius:8px;background:var(--green);font-size:13px;margin-top:10px}.warn{background:#fef3c7;color:#7c4a03}
+.tablewrap{overflow:auto;background:#fff;border-radius:14px;box-shadow:0 5px 18px #17365d14}table{border-collapse:collapse;width:100%;min-width:930px}th{background:var(--navy);color:#fff;padding:10px;position:sticky;top:0}td{padding:9px 10px;border-bottom:1px solid #e5e7eb;text-align:right}td:first-child,td:nth-child(2){text-align:center}tfoot td{font-weight:700;border-top:2px solid var(--navy)}.note{font-size:12px;color:#64748b;margin-top:14px;line-height:1.5}
+.error{color:var(--red);font-weight:600}@media(max-width:850px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}@media(max-width:480px){.kpis{grid-template-columns:1fr}}
+@media print{header{padding:12px}body{background:#fff}.grid,.actions,.status,.note{display:none}.kpis{grid-template-columns:repeat(4,1fr)}.card,.tablewrap,.kpi{box-shadow:none}main{padding:5px}th{position:static}}
+</style>
+</head><body>
+<header><div><h1>Generador de Cuadros de Pago</h1><p>Simulador referencial para operaciones comerciales en CLP y USD</p></div></header>
+<main>
+<section class="grid">
+<div class="card"><h2>1. Datos de la operación</h2>
+<label>Moneda de ingreso</label><select id="currency"><option>CLP</option><option>USD</option></select>
+<label>Valor neto</label><input id="net" type="number" min="0" step="0.01" value="65000000">
+<label>IVA</label><input id="vat" type="number" min="0" max="100" step="0.1" value="19">
+<label>Pago contado</label><input id="down" type="number" min="0" step="0.01" value="30000000">
+</div>
+<div class="card"><h2>2. Condiciones de pago</h2>
+<label>Modalidad</label><select id="mode"><option value="interest">Con interés</option><option value="free">Sin interés</option></select>
+<label>Tasa mensual (%)</label><input id="rate" type="number" min="0" max="100" step="0.01" value="0.95">
+<label>Número de cuotas</label><input id="terms" type="number" min="1" max="60" step="1" value="6">
+<label>Fecha de origen</label><input id="origin" type="date">
+</div>
+<div class="card"><h2>3. Tipo de cambio</h2>
+<label>Modo</label><select id="fxMode"><option value="auto">Automático</option><option value="manual">Manual</option></select>
+<label>CLP por USD</label><input id="fx" type="number" min="1" step="0.01" value="946.14">
+<button class="btn" id="refresh" style="margin-top:12px;width:100%">Actualizar dólar</button>
+<div id="fxStatus" class="status">Tipo de cambio de respaldo listo.</div>
+</div>
+</section>
+<section class="kpis">
+<div class="kpi"><small>Valor bruto CLP</small><strong id="grossKpi">-</strong></div>
+<div class="kpi"><small>Saldo a financiar CLP</small><strong id="financeKpi">-</strong></div>
+<div class="kpi"><small>Cuota CLP</small><strong id="paymentKpi">-</strong></div>
+<div class="kpi"><small>Cuota USD</small><strong id="paymentUsdKpi">-</strong></div>
+</section>
+<div id="error" class="error"></div>
+<div class="actions"><button class="btn" onclick="window.print()">Imprimir / Guardar PDF</button><button class="btn alt" id="csv">Descargar CSV</button><button class="btn alt" id="clear">Limpiar</button></div>
+<div class="tablewrap"><table><thead><tr><th>N°</th><th>Fecha</th><th>Saldo inicial CLP</th><th>Interés CLP</th><th>Capital CLP</th><th>Cuota CLP</th><th>Saldo final CLP</th><th>Cuota USD</th></tr></thead><tbody id="rows"></tbody><tfoot><tr><td colspan="3">Totales</td><td id="tInterest"></td><td id="tCapital"></td><td id="tPayment"></td><td></td><td id="tUsd"></td></tr></tfoot></table></div>
+<p class="note">Simulación referencial. El modo automático consulta el dólar observado publicado por mindicador.cl. Si la consulta no se encuentra disponible, la aplicación conserva el valor manual. Verifique el indicador y las condiciones comerciales antes de formalizar una operación.</p>
+</main>
+<script>
+const $=id=>document.getElementById(id); let schedule=[];
+const clp=new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0});
+const usd=new Intl.NumberFormat('es-CL',{style:'currency',currency:'USD',minimumFractionDigits:2});
+function n(id){return Number($(id).value)||0} function addMonths(d,m){let x=new Date(d+'T12:00:00');x.setMonth(x.getMonth()+m);return x}
+function fmtDate(d){return new Intl.DateTimeFormat('es-CL').format(d)}
+function calculate(){
+ $('error').textContent=''; const currency=$('currency').value, fx=n('fx'), net=n('net'), down=n('down'), vat=n('vat')/100, terms=Math.trunc(n('terms')), rate=$('mode').value==='free'?0:n('rate')/100;
+ $('rate').disabled=$('mode').value==='free';
+ if(net<0||down<0||fx<=0||terms<1||terms>60){$('error').textContent='Revisa los valores: montos no negativos, tipo de cambio mayor que cero y entre 1 y 60 cuotas.';return}
+ const mult=currency==='USD'?fx:1, netClp=net*mult, gross=netClp*(1+vat), financed=Math.max(0,gross-down*mult);
+ const pmt=financed===0?0:(rate===0?financed/terms:financed*(rate*Math.pow(1+rate,terms))/(Math.pow(1+rate,terms)-1));
+ $('grossKpi').textContent=clp.format(gross);$('financeKpi').textContent=clp.format(financed);$('paymentKpi').textContent=clp.format(pmt);$('paymentUsdKpi').textContent=usd.format(pmt/fx);
+ let bal=financed, html='', ti=0,tc=0,tp=0,tu=0; schedule=[]; const origin=$('origin').value||new Date().toISOString().slice(0,10);
+ for(let i=1;i<=terms;i++){let interest=bal*rate, capital=i===terms?bal:pmt-interest, payment=capital+interest, end=Math.max(0,bal-capital), row=[i,fmtDate(addMonths(origin,i)),bal,interest,capital,payment,end,payment/fx];schedule.push(row);ti+=interest;tc+=capital;tp+=payment;tu+=payment/fx;
+ html+=`<tr><td>${i}</td><td>${row[1]}</td><td>${clp.format(bal)}</td><td>${clp.format(interest)}</td><td>${clp.format(capital)}</td><td>${clp.format(payment)}</td><td>${clp.format(end)}</td><td>${usd.format(payment/fx)}</td></tr>`;bal=end}
+ $('rows').innerHTML=html;$('tInterest').textContent=clp.format(ti);$('tCapital').textContent=clp.format(tc);$('tPayment').textContent=clp.format(tp);$('tUsd').textContent=usd.format(tu)
+}
+async function updateFx(){const s=$('fxStatus'); if($('fxMode').value==='manual'){s.textContent='Modo manual activo.';s.className='status warn';calculate();return} s.textContent='Consultando dólar observado...';s.className='status';
+ try{const r=await fetch('https://mindicador.cl/api/dolar');if(!r.ok)throw Error();const j=await r.json();const last=j.serie?.[0];if(!last?.valor)throw Error();$('fx').value=last.valor;s.textContent=`Dólar observado: ${clp.format(last.valor)} | Fecha: ${fmtDate(new Date(last.fecha))}`;s.className='status';calculate()}catch(e){s.textContent='No fue posible actualizar. Se mantiene el valor manual de respaldo.';s.className='status warn';calculate()}}
+function csv(){let data=[['N cuota','Fecha','Saldo inicial CLP','Interes CLP','Capital CLP','Cuota CLP','Saldo final CLP','Cuota USD'],...schedule];let text='\ufeff'+data.map(r=>r.join(';')).join('\n');let b=new Blob([text],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='cuadro_de_pago.csv';a.click();URL.revokeObjectURL(a.href)}
+function clearForm(){$('net').value=0;$('down').value=0;$('terms').value=1;$('rate').value=0;$('mode').value='free';calculate()}
+['currency','net','vat','down','mode','rate','terms','origin','fx','fxMode'].forEach(id=>$(id).addEventListener('input',calculate));$('refresh').onclick=updateFx;$('csv').onclick=csv;$('clear').onclick=clearForm;
+$('origin').value=new Date().toISOString().slice(0,10);calculate();updateFx();
+</script></body></html>
